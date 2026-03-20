@@ -3,5 +3,11 @@ uvicorn
 fastapi
 requests
 beautifulsoup4
-aiocache
-starlette-compress
+beautifulsoup4
+fastapi
+requests
+uvicorn
+beautifulsoup4
+fastapi
+requests
+uvicorn
