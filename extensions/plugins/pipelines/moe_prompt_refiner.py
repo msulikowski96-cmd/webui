@@ -1,0 +1,232 @@
+import os
+from typing import List, Optional
+from pydantic import BaseModel
+import time
+
+
+class Pipeline:
+    """
+    该管道用于优化多模型（MoE）汇总请求的提示词。
+
+    它会拦截用于汇总多个模型响应的请求，提取原始用户查询和各个模型的具体回答，
+    然后构建一个新的、更详细、结构化的提示词。
+
+    这个经过优化的提示词会引导最终的汇总模型扮演一个专家分析师的角色，
+    将输入信息整合成一份高质量、全面的综合报告。
+    """
+
+    class Valves(BaseModel):
+        # 指定该过滤器管道将连接到的目标管道ID（模型）。
+        # 如果希望连接到所有管道，可以设置为 ["*"]。
+        pipelines: List[str] = ["*"]
+
+        # 为过滤器管道分配一个优先级。
+        # 优先级决定了过滤器管道的执行顺序。
+        # 数字越小，优先级越高。
+        priority: int = 0
+
+        # 指定用于分析和总结的模型ID。
+        # 如果设置，MoE汇总请求将被重定向到此模型。
+        model_id: Optional[str] = None
+
+        # MoE 汇总请求的触发前缀。
+        # 用于识别是否为 MoE 汇总请求。
+        trigger_prefix: str = (
+            "You have been provided with a set of responses from various models to the latest user query"
+        )
+
+        # 解析原始查询的起始标记
+        query_start_marker: str = 'the latest user query: "'
+
+        # 解析原始查询的结束标记
+        query_end_marker: str = '"\n\nYour task is to'
+
+        # 解析模型响应的起始标记
+        response_start_marker: str = "Responses from models: "
+
+    def __init__(self):
+        self.type = "filter"
+        self.name = "moe_prompt_refiner"
+        self.valves = self.Valves()
+
+    async def on_startup(self):
+        # 此函数在服务器启动时调用。
+        # print(f"on_startup:{__name__}")
+        pass
+
+    async def on_shutdown(self):
+        # 此函数在服务器停止时调用。
+        # print(f"on_shutdown:{__name__}")
+        pass
+
+    async def inlet(self, body: dict, user: Optional[dict] = None) -> dict:
+        """
+        此方法是管道的入口点。
+
+        它会检查传入的请求是否为多模型（MoE）汇总请求。如果是，它会解析原始提示词，
+        提取用户的查询和来自不同模型的响应。然后，它会动态构建一个新的、结构更清晰的提示词，
+        并用它替换原始的消息内容。
+
+        参数:
+            body (dict): 包含消息的请求体。
+            user (Optional[dict]): 用户信息。
+
+        返回:
+            dict: 包含优化后提示词的已修改请求体。
+        """
+        print(f"pipe:{__name__}")
+
+        messages = body.get("messages", [])
+        if not messages:
+            return body
+
+        user_message_content = ""
+        user_message_index = -1
+
+        # 找到最后一条用户消息
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i].get("role") == "user":
+                content = messages[i].get("content", "")
+                # 处理内容为数组的情况（多模态消息）
+                if isinstance(content, list):
+                    # 从数组中提取所有文本内容
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict) and item.get("type") == "text":
+                            text_parts.append(item.get("text", ""))
+                        elif isinstance(item, str):
+                            text_parts.append(item)
+                    user_message_content = "".join(text_parts)
+                elif isinstance(content, str):
+                    user_message_content = content
+
+                user_message_index = i
+                break
+
+        if user_message_index == -1:
+            return body
+
+        # 检查是否为MoE汇总请求
+        if isinstance(user_message_content, str) and user_message_content.startswith(
+            self.valves.trigger_prefix
+        ):
+            print("检测到MoE汇总请求，正在更改提示词。")
+
+            # 如果配置了 model_id，则重定向请求
+            if self.valves.model_id:
+                print(f"重定向请求到模型: {self.valves.model_id}")
+                body["model"] = self.valves.model_id
+
+            # 1. 提取原始查询
+            query_start_phrase = self.valves.query_start_marker
+            query_end_phrase = self.valves.query_end_marker
+            start_index = user_message_content.find(query_start_phrase)
+            end_index = user_message_content.find(query_end_phrase)
+
+            original_query = ""
+            if start_index != -1 and end_index != -1:
+                original_query = user_message_content[
+                    start_index + len(query_start_phrase) : end_index
+                ]
+
+            # 2. 提取各个模型的响应
+            responses_start_phrase = self.valves.response_start_marker
+            responses_start_index = user_message_content.find(responses_start_phrase)
+
+            responses_text = ""
+            if responses_start_index != -1:
+                responses_text = user_message_content[
+                    responses_start_index + len(responses_start_phrase) :
+                ]
+
+            # 使用三重双引号作为分隔符来提取响应
+            responses = [
+                part.strip() for part in responses_text.split('"""') if part.strip()
+            ]
+
+            # 3. 动态构建模型响应部分
+            responses_section = ""
+            for i, response in enumerate(responses):
+                responses_section += f'''"""
+[第 {i + 1} 个模型的完整回答]
+{response}
+"""
+'''
+
+            # 4. 构建新的提示词
+            merge_prompt = f'''# 角色定位
+你是一位经验丰富的首席分析师，正在处理来自多个独立 AI 专家团队对同一问题的分析报告。你的任务是将这些报告进行深度整合、批判性分析，并提炼出一份结构清晰、洞察深刻、对决策者极具价值的综合报告。
+
+# 原始用户问题
+{original_query}
+
+# 输入格式说明 ⚠️ 重要
+各模型的响应已通过 """ （三重引号）分隔符准确识别和分离。系统已将不同模型的回答分别提取，你现在需要基于以下分离后的内容进行分析。
+
+**已分离的模型响应**:
+{responses_section}
+# 核心任务
+请勿简单地复制或拼接原始报告。你需要运用你的专业分析能力，完成以下步骤：
+
+## 1. 信息解析与评估 (Analysis & Evaluation)
+- **准确分隔**: 已根据 """ 分隔符，准确识别每个模型的回答边界。
+- **可信度评估**: 批判性地审视每份报告，识别其中可能存在的偏见、错误或不一致之处。
+- **逻辑梳理**: 理清每份报告的核心论点、支撑论据和推理链条。
+
+## 2. 核心洞察提炼 (Insight Extraction)
+- **识别共识**: 找出所有报告中共同提及、高度一致的观点或建议。这通常是问题的核心事实或最稳健的策略。
+- **突出差异**: 明确指出各报告在视角、方法、预测或结论上的关键分歧点。这些分歧往往蕴含着重要的战略考量。
+- **捕捉亮点**: 挖掘单个报告中独有的、具有创新性或深刻性的见解，这些"闪光点"可能是关键的差异化优势。
+
+## 3. 综合报告撰写 (Synthesis)
+基于以上分析，生成一份包含以下结构的综合报告：
+
+### **【核心共识】**
+- 用清晰的要点列出所有模型一致认同的关键信息或建议。
+- 标注覆盖范围（如"所有模型均同意"或"多数模型提及"）。
+
+### **【关键分歧】**
+- 清晰地对比不同模型在哪些核心问题上持有不同观点。
+- 用序号或描述性语言标识不同的观点阵营（如"观点 A 与观点 B 的分歧"或"方案 1 vs 方案 2"）。
+- 简要说明其原因或侧重点的差异。
+
+### **【独特洞察】**
+- 提炼并呈现那些仅在单个报告中出现，但极具价值的独特建议或视角。
+- 用"某个模型提出"或"另一视角"等中立表述，避免因缺少显式来源标记而造成的混淆。
+
+### **【综合分析与建议】**
+- **整合**: 基于共识、差异和亮点，提供一个全面、平衡、且经过你专业判断优化的最终分析。
+- **建议**: 如果原始指令是寻求方案或策略，这里应提出一个或多个融合了各方优势的、可执行的建议。
+
+# 格式要求
+- 语言精炼、逻辑清晰、结构分明。
+- 使用加粗、列表、标题等格式，确保报告易于阅读和理解。
+- 由于缺少显式的模型标识，**在呈现差异化观点时，使用描述性或序号化的方式**（如"第一种观点""另一个视角"）而非具体的模型名称。
+- 始终以"为用户提供最高价值的决策依据"为目标。
+
+# 输出结构示例
+根据以上要求，你的输出应该呈现如下结构：
+
+## 【核心共识】
+✓ [共识观点 1] —— 所有模型均同意
+✓ [共识观点 2] —— 多数模型同意
+
+## 【关键分歧】
+⚡ **在[议题]上的分歧**:
+- 观点阵营 A: ...
+- 观点阵营 B: ...
+- 观点阵营 C: ...
+
+## 【独特洞察】
+💡 [某个模型独有的深刻观点]: ...
+💡 [另一个模型的创新视角]: ...
+
+## 【综合分析与建议】
+基于以上分析，推荐方案/策略: ...
+'''
+
+            # 5. 替换原始消息内容
+            body["messages"][user_message_index]["content"] = merge_prompt
+            print("提示词已成功动态替换。")
+
+        return body

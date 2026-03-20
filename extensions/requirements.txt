@@ -1,0 +1,12 @@
+# MkDocs Documentation Dependencies
+# Core MkDocs
+mkdocs>=1.5.0,<2.0.0
+
+# Material Theme for MkDocs
+mkdocs-material>=9.5.0
+
+# Plugins
+mkdocs-minify-plugin>=0.7.0
+
+# Multi-language support
+mkdocs-static-i18n>=1.0.0

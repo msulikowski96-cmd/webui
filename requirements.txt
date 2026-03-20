@@ -1,0 +1,5 @@
+open-webui
+uvicorn
+fastapi
+requests
+beautifulsoup4

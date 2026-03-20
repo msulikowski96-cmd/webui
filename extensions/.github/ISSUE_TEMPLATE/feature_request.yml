@@ -1,0 +1,104 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "[FEATURE] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your suggestion! Please describe the feature you'd like to see.
+
+  - type: dropdown
+    id: plugin-type
+    attributes:
+      label: Plugin Type (Optional)
+      description: Is this for a specific plugin type?
+      options:
+        - Action
+        - Filter
+        - Pipe
+        - Pipeline
+        - Tool
+        - Core/General
+        - Documentation
+        - Other
+    validations:
+      required: false
+
+  - type: dropdown
+    id: plugin-name
+    attributes:
+      label: Plugin Name (Optional)
+      description: Which plugin would benefit from this feature?
+      options:
+        - "Select a plugin..."
+        - "Action - Deep Dive"
+        - "Action - Export to Word Enhanced"
+        - "Action - Export to Excel"
+        - "Action - Flash Card"
+        - "Action - Smart Infographic"
+        - "Action - Smart Mind Map"
+        - "Filter - Async Context Compression"
+        - "Filter - Context & Model Enhancement Filter"
+        - "Filter - Folder Memory"
+        - "Filter - GitHub Copilot SDK Files Filter"
+        - "Filter - Markdown Normalizer"
+        - "Filter - Gemini Multimodel Filter"
+        - "Pipeline - MOE Prompt Refiner"
+        - "Pipe - GitHub Copilot SDK"
+        - "Pipe - iFlow SDK"
+        - "Tool - OpenWebUI Skills Manager"
+        - "Tool - Smart Infographic Tool"
+        - "Tool - Smart Mind Map Tool"
+        - "Core/General Improvement"
+        - "Other / Not Listed"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Clearly describe the feature you're requesting
+      placeholder: |
+        What feature would you like to see?
+        How would it work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation & Use Case
+      description: Why is this feature important? What problem does it solve?
+      placeholder: |
+        What's the pain point this solves?
+        How would it improve your workflow?
+        Who else would benefit from this?
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information (Optional)
+      description: "Mockups, alternatives considered, references, or examples"
+      placeholder: |
+        - Links to related plugins or tools
+        - Screenshots or mockups
+        - Alternative approaches you've considered
+        - Code examples or references
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues/discussions for similar requests
+          required: true
+        - label: This feature would be useful for multiple users
+          required: false

@@ -1,0 +1,103 @@
+# OpenWebUI 社区统计报告自动生成
+# 智能检测：只在有意义的变更时才 commit
+# - 新增插件 (total_posts)
+# - 插件版本变更 (version)
+# - 积分增加 (total_points)
+# - 粉丝增加 (followers)
+
+name: Community Stats
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests python-dotenv
+
+      - name: Capture existing stats (before update)
+        id: old_stats
+        run: |
+          if [ -f docs/community-stats.json ]; then
+            cp docs/community-stats.json docs/community-stats.json.old
+            echo "total_posts=$(jq -r '.total_posts // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+            echo "versions=$(jq -r '[.posts[] | {slug: .slug, version: .version}] | sort_by(.slug) | map("\(.slug):\(.version)") | join(",")' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          else
+            echo "total_posts=0" >> $GITHUB_OUTPUT
+            echo "versions=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate stats report
+        env:
+          OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
+          OPENWEBUI_USER_ID: ${{ secrets.OPENWEBUI_USER_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+        run: |
+          python scripts/openwebui_stats.py
+
+      - name: Capture new stats (after update)
+        id: new_stats
+        run: |
+          echo "total_posts=$(jq -r '.total_posts // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          echo "versions=$(jq -r '[.posts[] | {slug: .slug, version: .version}] | sort_by(.slug) | map("\(.slug):\(.version)") | join(",")' docs/community-stats.json)" >> $GITHUB_OUTPUT
+
+      - name: Check for significant changes
+        id: check_changes
+        run: |
+          OLD_POSTS="${{ steps.old_stats.outputs.total_posts }}"
+          NEW_POSTS="${{ steps.new_stats.outputs.total_posts }}"
+          OLD_VERSIONS="${{ steps.old_stats.outputs.versions }}"
+          NEW_VERSIONS="${{ steps.new_stats.outputs.versions }}"
+          
+          SHOULD_COMMIT="false"
+          CHANGE_REASON=""
+          
+          if [ "$NEW_POSTS" -gt "$OLD_POSTS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="new plugin added ($OLD_POSTS -> $NEW_POSTS)"
+          elif [ "$NEW_POSTS" -lt "$OLD_POSTS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="plugin removed ($OLD_POSTS -> $NEW_POSTS)"
+          elif [ "$OLD_VERSIONS" != "$NEW_VERSIONS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="plugin versions updated"
+            echo "🔄 Version change detected"
+          fi
+          
+          echo "should_commit=$SHOULD_COMMIT" >> $GITHUB_OUTPUT
+          echo "change_reason=$CHANGE_REASON" >> $GITHUB_OUTPUT
+          
+          if [ "$SHOULD_COMMIT" = "false" ]; then
+            echo "ℹ️ No significant changes (posts or versions), skipping commit"
+          else
+            echo "✅ Significant changes detected: $CHANGE_REASON"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.should_commit == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/ README.md README_CN.md
+          git diff --staged --quiet || git commit -m "chore: update community stats - ${{ steps.check_changes.outputs.change_reason }}"
+          git push
