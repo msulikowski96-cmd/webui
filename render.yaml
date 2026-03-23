@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: openwebui
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: WEBUI_AUTH
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: WEBUI_SECRET_KEY
+        sync: false
+      - key: USE_CUDA_DOCKER
+        value: "false"
+      - key: RAG_EMBEDDING_ENGINE
+        value: "ollama"
+      - key: ENABLE_IMAGE_GENERATION
+        value: "false"
