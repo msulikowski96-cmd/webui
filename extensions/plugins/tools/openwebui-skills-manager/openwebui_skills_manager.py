@@ -578,17 +578,6 @@ async def _emit_notification(
         )
 
 
-async def _emit_notification(
-    emitter: Optional[Any],
-    content: str,
-    ntype: str = "info",
-):
-    """Emit notification event (info, success, warning, error)."""
-    if emitter:
-        await emitter(
-            {"type": "notification", "data": {"type": ntype, "content": content}}
-        )
-
 async def _emit_status(
     valves,
     emitter: Optional[Any],
