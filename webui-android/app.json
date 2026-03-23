@@ -44,7 +44,10 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "webuiUrl": "https://c9c7f132-8344-48b1-9d2f-63287ff0c980-00-r39lh3dlo6x7.riker.replit.dev"
+      "webuiUrl": "https://c9c7f132-8344-48b1-9d2f-63287ff0c980-00-r39lh3dlo6x7.riker.replit.dev",
+      "eas": {
+        "projectId": "3da7d85f-d34c-4334-9128-8dc625469192"
+      }
     },
     "plugins": [
       [
