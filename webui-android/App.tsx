@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import Constants from "expo-constants";
 import {
@@ -13,8 +13,8 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 
-const WEBUI_URL =
-  Constants.expoConfig?.extra?.webuiUrl ||
+const WEBUI_URL: string =
+  (Constants.expoConfig?.extra?.webuiUrl as string) ||
   process.env.EXPO_PUBLIC_WEBUI_URL ||
   "https://c9c7f132-8344-48b1-9d2f-63287ff0c980-00-r39lh3dlo6x7.riker.replit.dev";
 
@@ -101,7 +101,13 @@ export default function App() {
         sharedCookiesEnabled={true}
         thirdPartyCookiesEnabled={true}
         cacheEnabled={true}
-        userAgent="OpenWebUI-Android/1.0"
+        userAgent="Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+        allowFileAccess={true}
+        allowFileAccessFromFileURLs={true}
+        allowUniversalAccessFromFileURLs={true}
+        geolocationEnabled={true}
+        saveFormDataDisabled={false}
+        originWhitelist={["*"]}
       />
     </View>
   );

@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.openwebui.mobile"
+      "bundleIdentifier": "com.openwebui.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Wymagane do przesyłania zdjęć do czatu AI",
+        "NSMicrophoneUsageDescription": "Wymagane do nagrywania głosu w czacie"
+      }
     },
     "android": {
       "package": "com.openwebui.mobile",
@@ -25,15 +29,32 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "INTERNET",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.DOWNLOAD_WITHOUT_NOTIFICATION"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "webuiUrl": "https://c9c7f132-8344-48b1-9d2f-63287ff0c980-00-r39lh3dlo6x7.riker.replit.dev"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false
+          }
+        }
+      ]
+    ]
   }
 }
